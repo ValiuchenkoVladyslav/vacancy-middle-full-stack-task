@@ -1,3 +1,4 @@
+import { formatMinorAmount } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { TransferForm } from "./transfer-form";
 
@@ -14,7 +15,7 @@ export default async function Home() {
       <ul>
         {accounts.map((a) => (
           <li key={a.id}>
-            <b>{a.ownerName}</b> <code>({a.id})</code> — {a.balance} {a.currency}
+            <b>{a.ownerName}</b> <code>({a.id})</code> - {formatMinorAmount(a.balanceMinor, a.currency)}
           </li>
         ))}
       </ul>
@@ -23,7 +24,7 @@ export default async function Home() {
       <TransferForm
         accounts={accounts.map((a) => ({
           id: a.id,
-          label: `${a.ownerName} — ${a.balance} ${a.currency}`,
+          label: `${a.ownerName} - ${formatMinorAmount(a.balanceMinor, a.currency)}`,
         }))}
       />
     </main>

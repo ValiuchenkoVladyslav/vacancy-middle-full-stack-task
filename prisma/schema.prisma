@@ -8,25 +8,29 @@ datasource db {
 }
 
 model Account {
-  id        String     @id @default(uuid())
-  userId    String
-  ownerName String
-  balance   Float
-  currency  String     @default("USD")
-  createdAt DateTime   @default(now())
+  id           String     @id @default(uuid())
+  userId       String
+  ownerName    String
+  balanceMinor BigInt
+  currency     String     @default("USD")
+  createdAt    DateTime   @default(now())
 
-  outgoing  Transfer[] @relation("from")
-  incoming  Transfer[] @relation("to")
+  outgoing     Transfer[] @relation("from")
+  incoming     Transfer[] @relation("to")
 }
 
 model Transfer {
-  id            String   @id @default(uuid())
-  fromAccount   Account  @relation("from", fields: [fromAccountId], references: [id])
-  fromAccountId String
-  toAccount     Account  @relation("to", fields: [toAccountId], references: [id])
-  toAccountId   String
-  amount        Float
-  createdAt     DateTime @default(now())
+  id              String   @id @default(uuid())
+  fromAccount     Account  @relation("from", fields: [fromAccountId], references: [id])
+  fromAccountId   String
+  toAccount       Account  @relation("to", fields: [toAccountId], references: [id])
+  toAccountId     String
+  fromAmountMinor BigInt
+  toAmountMinor   BigInt
+  fromCurrency    String
+  toCurrency      String
+  exchangeRate    String
+  createdAt       DateTime @default(now())
 }
 
 // Використовується для дедуплікації повідомлень із черги переказів.

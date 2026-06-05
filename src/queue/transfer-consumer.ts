@@ -1,5 +1,5 @@
 import { runOnce } from "@/lib/idempotency";
-import { transferMoney } from "@/app/actions/transfer";
+import { createTransfer } from "@/lib/transfer-service";
 
 // Фоновий обробник черги переказів.
 //
@@ -14,11 +14,12 @@ export type TransferMessage = {
 };
 
 export async function handleTransferMessage(msg: TransferMessage) {
+  // assumes fromAccountId is authenticated before sending the message
   return runOnce(msg.messageId, () =>
-    transferMoney({
+    createTransfer({
       fromAccountId: msg.fromAccountId,
       toAccountId: msg.toAccountId,
       amount: msg.amount,
-    }),
+    }, msg.fromAccountId),
   );
 }

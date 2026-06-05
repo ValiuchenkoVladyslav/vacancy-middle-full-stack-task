@@ -11,16 +11,16 @@ export function TransferForm({ accounts }: { accounts: Option[] }) {
   const [amount, setAmount] = useState("100");
   const [status, setStatus] = useState("");
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.SubmitEvent) {
     e.preventDefault();
     setStatus("Sending...");
     try {
-      const res = await transferMoney({
+      await transferMoney({
         fromAccountId: from,
         toAccountId: to,
         amount: Number(amount),
       });
-      setStatus(res.success ? "OK" : "Failed");
+      setStatus("OK");
     } catch (err) {
       setStatus("Error: " + (err as Error).message);
     }
@@ -50,7 +50,14 @@ export function TransferForm({ accounts }: { accounts: Option[] }) {
       </label>
       <label>
         Amount
-        <input value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: "100%" }} />
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          style={{ width: "100%" }}
+        />
       </label>
       <button type="submit">Transfer</button>
       <div>{status}</div>
