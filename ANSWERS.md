@@ -88,3 +88,24 @@ For `runOnce`, I would make idempotency state transactional and claim the key be
 
 # Part 2 - Note on idempotency
 `runOnce` is not safe for concurrent duplicates because it checks for a key, performs the transfer, then inserts the key. I would fix it by atomically claiming an idempotency key before executing work, storing `processing`/`completed` states, and tying the key to the transfer effect in the same transaction or with a unique transfer-level idempotency key.
+
+# Part 3 - Architecture and logic
+
+## 1. Idempotent queue consumer
+
+For an `at-least-once` queue with several consumer instances, `runOnce` must claim the idempotency key atomically in Postgres before the transfer can run. I would store an idempotency row with fields like `key`, `status`, `result`, `error`, `lockedUntil`, and timestamps. The first worker inserts `status = 'processing'` with `INSERT ... ON CONFLICT DO NOTHING`; if the insert succeeds, it owns the work. If the insert conflicts, the duplicate reads the existing row under lock.
+
+A duplicate should return the stored result when the row is `completed`. If the row is `processing` and not expired, it should not run the transfer again; it can wait, retry later, or return a controlled "already processing" response depending on the queue visibility timeout. If the row is `failed`, the behavior depends on error type: validation errors can be returned permanently, while retryable infrastructure errors can be retried after taking over an expired lock.
+
+The important part is that the idempotency key and the money movement must be tied together transactionally. I would add an `idempotencyKey` or `messageId` column to `Transfer` with a unique constraint, then execute the transfer and mark the idempotency row as `completed` in the same DB transaction. If a worker crashes between the transfer and the final idempotency update, retrying the same message cannot create a second transfer because the unique `Transfer.idempotencyKey` already exists. The retry can read that transfer and finish or repair the idempotency record.
+
+## 2. Balances at scale
+...
+
+## 3. External payment provider with ambiguous timeouts
+
+For external provider transfers, I would model the payment as a state machine, not a single synchronous call. Useful states are `created`, `reserved`, `provider_pending`, `provider_succeeded`, `provider_failed`, `completed`, `reversal_pending`, and `reversed`. Before calling the provider, the system should reserve funds internally in a transaction, using an idempotency key and a durable payment row. That prevents double spending while the external result is unknown.
+
+The provider call must use the provider's idempotency key if available. If the call times out, the payment should remain `provider_pending`; the system must not debit again or mark it failed just because the HTTP request timed out. A background reconciler should query the provider by the external idempotency key or provider reference until the result is known. If the provider later confirms success, we finalize the internal debit and credit or settlement entry exactly once. If the provider confirms failure, we release the reservation and mark the payment failed.
+
+If the provider has no reliable idempotency API, I would avoid automatic blind retries that can duplicate charges. Instead, I would send one request with our own unique reference, persist the ambiguous state, and reconcile by provider search/reporting before retrying. The invariant is that each internal payment ID can have only one successful external effect, and each state transition is guarded by unique constraints and conditional updates such as `WHERE status = 'provider_pending'` so duplicate workers cannot advance the same payment twice.
