@@ -85,3 +85,6 @@ For `transferMoney`, I would wrap the full operation in a database transaction a
 For money, I would store minor units as integers, for example cents, or use a fixed-scale decimal type with strict rounding rules. I would also store currency on each transfer and require same-currency internal transfers unless an explicit FX flow exists.
 
 For `runOnce`, I would make idempotency state transactional and claim the key before executing the operation using an atomic insert/upsert. A robust design would store statuses such as `processing`, `completed`, and `failed`, plus the serialized result or error. Concurrent duplicates should either wait for the in-flight record to complete or return the completed result. The idempotency record and transfer effects should be committed atomically, or the transfer itself should carry the idempotency key with a unique constraint so retrying after a crash cannot create a second money movement.
+
+# Part 2 - Note on idempotency
+`runOnce` is not safe for concurrent duplicates because it checks for a key, performs the transfer, then inserts the key. I would fix it by atomically claiming an idempotency key before executing work, storing `processing`/`completed` states, and tying the key to the transfer effect in the same transaction or with a unique transfer-level idempotency key.
